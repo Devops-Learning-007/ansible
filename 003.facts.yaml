@@ -1,7 +1,17 @@
 - name: Demo on facts
   hosts: all
-  gather_facts: false
-  tasks:
+  gather_facts: False
+
+# tasks:
+#    - name: Printing a fact 
+#      ansible.builtin.debug:
+#       msg: "cpu architecture is {{ansible_architecture}}"
+
+ tasks:
     - name: Printing a fact 
-      ansible.builtin.debug:
-        msg: "cpu architecture is {{ansible_architecture}}"
+      ansible.builtin.shell: uptime
+      ignore_errors: True
+
+    - name: Printing a fact 
+      ansible.builtin.debug: 
+        msg: "this is task2, task1 failed"
