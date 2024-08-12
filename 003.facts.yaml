@@ -1,6 +1,5 @@
 - name: Demo on facts
   hosts: all
-  gather_facts: False
 
 # tasks:
 #    - name: Printing a fact 
