@@ -6,8 +6,7 @@
     - name: Printing Variable
       ansible.builtin.debug:
         msg: "Value of the url is {{URL}}"
-
-  tasks:
+        
     - name: Printing Variable2
       ansible.builtin.debug:
         msg: "Value of the url is {{URL}}"
