@@ -1,5 +1,7 @@
 - name: Demo on Package
   hosts: all
+  gather_facts: False
+  become: true
   tasks:
     - name: UNInstalling nginx
       ansible.builtin.package: 
