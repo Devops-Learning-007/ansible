@@ -4,9 +4,9 @@
     - name: UNInstalling nginx
       ansible.builtin.package: 
         name: nginx
-        stage: absent
+        state: absent
 
     - name: UNInstalling nginx
       ansible.builtin.package: 
         name: nginx
-        stage: present
+        state: present
