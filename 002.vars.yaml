@@ -1,0 +1,8 @@
+- name: play1
+  hosts: all
+  vars: 
+    URL: play.google.com
+  tasks:
+    - name: Printing Variable
+      ansible.builtin.debug:
+        msg: "Value of the url is {{URL}}"
