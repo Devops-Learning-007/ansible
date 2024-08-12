@@ -1,0 +1,12 @@
+- name: Demo on Package
+  hosts: all
+  tasks:
+    - name: UNInstalling nginx
+      ansible.builtin.package: 
+        name: nginx
+        stage: absent
+
+    - name: UNInstalling nginx
+      ansible.builtin.package: 
+        name: nginx
+        stage: present
