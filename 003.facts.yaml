@@ -1,12 +1,7 @@
 - name: Demo on facts
   hosts: all
 
-# tasks:
-#    - name: Printing a fact 
-#      ansible.builtin.debug:
-#       msg: "cpu architecture is {{ansible_architecture}}"
-
- tasks:
+  tasks:
     - name: Printing a fact 
       ansible.builtin.shell: uptime
       ignore_errors: True
