@@ -37,7 +37,7 @@ failed_devices_file_path = "/export/home/xc04437/failed_devices.csv"  # File to 
 def run_command(device, command):
     try:
         # Start a session with the device
-        child = pexpect.spawn("roci {}".format(device), timeout=60)  # 1 minute timeout
+        child = pexpect.spawn("roci {}".format(device), timeout=60, maxread=5000)  # Increase maxread if needed
 
         # Wait for the prompt
         child.expect('>')
@@ -100,6 +100,9 @@ for device in devices:
                 instance_data.append((instance_name, service_type, interface))
 
     interface_descriptions = {}
+    current_interface = None
+    description_lines = []
+
     for line in interface_output.strip().splitlines():
         if line.startswith("Interface"):
             continue
@@ -107,8 +110,18 @@ for device in devices:
         if len(parts) < 4:
             continue
         interface_name = parts[0]
-        description = ' '.join(parts[3:])
-        interface_descriptions[interface_name] = description
+        description = ' '.join(parts[3:]).strip()
+        
+        if current_interface is None or current_interface != interface_name:
+            if current_interface is not None:
+                interface_descriptions[current_interface] = ' '.join(description_lines).strip()
+            current_interface = interface_name
+            description_lines = [description]
+        else:
+            description_lines.append(description)
+        
+    if current_interface is not None:
+        interface_descriptions[current_interface] = ' '.join(description_lines).strip()
 
     for instance_name, service_type, interface in instance_data:
         main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
