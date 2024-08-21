@@ -123,8 +123,15 @@ for device in devices:
     if current_interface is not None:
         interface_descriptions[current_interface] = ' '.join(description_lines).strip()
 
+    processed_interfaces = set()
+
     for instance_name, service_type, interface in instance_data:
         main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
+
+        # Ignore if the interface has already been processed for this device
+        if main_interface in processed_interfaces:
+            continue
+
         description = interface_descriptions.get(main_interface, "")
         connection_type = description if description else ""
 
@@ -137,6 +144,9 @@ for device in devices:
             "Sub interface": sub_interface,
             "Connection type": connection_type,  # Full description now
         })
+
+        # Mark the interface as processed
+        processed_interfaces.add(main_interface)
 
 # Write all data to the CSV file
 with open(output_file_path, mode="w") as csv_file:
