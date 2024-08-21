@@ -36,7 +36,7 @@ output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with 
 def run_command(device, command):
     try:
         # Start a session with the device
-        child = pexpect.spawn(f"roci {device}")
+        child = pexpect.spawn("roci {}".format(device))
 
         # Wait for the prompt
         child.expect('>')
@@ -56,7 +56,7 @@ def run_command(device, command):
         return output
 
     except pexpect.exceptions.ExceptionPexpect as e:
-        print(f"Error running command on device {device}: {e}")
+        print("Error running command on device {}: {}".format(device, e))
         return ""
 
 # Read devices from the CSV file
@@ -69,7 +69,7 @@ all_instance_data = []
 
 # Process each device
 for device in devices:
-    print(f"Processing device: {device}")
+    print("Processing device: {}".format(device))
     
     # Run commands on the device
     config_output = run_command(device, "show configuration routing-instances | display set | match \"interface|instance-type\" | no-more")
@@ -121,4 +121,4 @@ with open(output_file_path, mode="w", newline="") as csv_file:
     writer.writeheader()
     writer.writerows(all_instance_data)
 
-print(f"CSV file '{output_file_path}' updated successfully with data from all devices.")
+print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
