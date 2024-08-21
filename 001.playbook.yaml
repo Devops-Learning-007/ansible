@@ -126,7 +126,7 @@ for device in devices:
         })
 
 # Write all data to the CSV file
-with open(output_file_path, mode="w", newline="") as csv_file:
+with open(output_file_path, mode="w") as csv_file:
     fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     writer.writeheader()
@@ -135,7 +135,7 @@ with open(output_file_path, mode="w", newline="") as csv_file:
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
 
 # Write failed devices to the CSV file
-with open(failed_devices_file_path, mode="w", newline="") as csv_file:
+with open(failed_devices_file_path, mode="w") as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(["Failed Devices"])
     for device in failed_devices:
