@@ -55,7 +55,7 @@ def run_command(device, command):
 
         return output
 
-    except pexpect.exceptions.ExceptionPexpect as e:
+    except pexpect.ExceptionPexpect as e:
         print("Error running command on device {}: {}".format(device, e))
         return ""
 
@@ -122,3 +122,4 @@ with open(output_file_path, mode="w") as csv_file:
     writer.writerows(all_instance_data)
 
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
+
