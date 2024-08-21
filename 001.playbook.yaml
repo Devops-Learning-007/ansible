@@ -26,7 +26,7 @@ output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with 
 
 
 import csv
-import subprocess
+import pexpect
 import re
 
 # File paths
@@ -44,68 +44,77 @@ with open(device_list_file, mode="rb") as file:
     reader = csv.reader(file)
     devices = [row[0] for row in reader]
 
-# Function to run commands on a device and capture the output
 def run_command(device, command):
-    process = subprocess.Popen("roci {} {}".format(device, command), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        print("Error running command on device {}: {}".format(device, stderr))
-        return ""
-    return stdout
+    # Start an interactive session with the device using pexpect
+    child = pexpect.spawn('roci {}'.format(device))
+    child.expect('>')
+    child.sendline(command)
+    child.expect('>')
+    output = child.before
+    child.close()
+    return output
 
 # Process each device
 for device in devices:
     print("Processing device: {}".format(device))
     
     # Run the required commands on the device
-    config_output = run_command(device, "show configuration routing-instances | display set | match 'interface|instance-type' | no-more")
-    interface_output = run_command(device, "show interfaces descriptions | no-more")
-
-    # Initialize variables for parsing
-    instance_data = []
+    config_command = "show configuration routing-instances | display set | match 'interface|instance-type' | no-more"
+    interface_command = "show interfaces descriptions | no-more"
     
-    # Parse routing instances and interfaces
-    for line in config_output.strip().splitlines():
-        match_instance = re.match(r"set routing-instances (\S+) instance-type (\S+)", line)
-        match_interface = re.match(r"set routing-instances (\S+) interface (\S+)", line)
-        
-        if match_instance:
-            instance_name, service_type = match_instance.groups()
-        elif match_interface:
-            instance_name_from_interface, interface = match_interface.groups()
-            if instance_name == instance_name_from_interface:
-                instance_data.append((instance_name, service_type, interface))
+    try:
+        config_output = run_command(device, config_command)
+        interface_output = run_command(device, interface_command)
 
-    # Parse interface descriptions
-    interface_descriptions = {}
-    for line in interface_output.strip().splitlines():
-        if line.startswith("Interface"):
-            continue
-        parts = line.split(maxsplit=3)
-        if len(parts) > 3:
-            interface_name = parts[0]
-            description = parts[3]
-            interface_descriptions[interface_name] = description
+        # Initialize variables for parsing
+        instance_data = []
 
-    # Append the data to the output CSV file
-    with open(output_file_path, mode="ab") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        # Parse routing instances and interfaces
+        for line in config_output.splitlines():
+            match_instance = re.match(r"set routing-instances (\S+) instance-type (\S+)", line)
+            match_interface = re.match(r"set routing-instances (\S+) interface (\S+)", line)
 
-        for instance_name, service_type, interface in instance_data:
-            main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
-            description = interface_descriptions.get(main_interface, "")
-            connection_type = description if description else ""
+            if match_instance:
+                instance_name, service_type = match_instance.groups()
+            elif match_interface:
+                instance_name_from_interface, interface = match_interface.groups()
+                if instance_name == instance_name_from_interface:
+                    instance_data.append((instance_name, service_type, interface))
 
-            writer.writerow({
-                "Device": device,
-                "Routing Instance": instance_name,
-                "Service type": service_type,
-                "Interface": interface,
-                "Main Interface": main_interface,
-                "Sub interface": sub_interface,
-                "Connection type": connection_type,
-            })
+        # Parse interface descriptions
+        interface_descriptions = {}
+        for line in interface_output.splitlines():
+            if line.startswith("Interface"):
+                continue
+            parts = line.split(None, 3)
+            if len(parts) > 3:
+                interface_name = parts[0]
+                description = parts[3]
+                interface_descriptions[interface_name] = description
+
+        # Append the data to the output CSV file
+        with open(output_file_path, mode="ab") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            for instance_name, service_type, interface in instance_data:
+                main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
+                description = interface_descriptions.get(main_interface, "")
+                connection_type = description.split('|')[0] if description else ""
+
+                writer.writerow({
+                    "Device": device,
+                    "Routing Instance": instance_name,
+                    "Service type": service_type,
+                    "Interface": interface,
+                    "Main Interface": main_interface,
+                    "Sub interface": sub_interface,
+                    "Connection type": connection_type,
+                })
+
+        print("CSV file '{}' updated successfully with data from device '{}'.".format(output_file_path, device))
+
+    except Exception as e:
+        print("Error processing device {}: {}".format(device, str(e)))
 
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
-
 
