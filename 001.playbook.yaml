@@ -27,8 +27,8 @@ import re
 import os
 
 # File paths
-device_list_file = "C:\\path\\to\\device_list.csv"  # Replace with your actual CSV file path containing devices
-output_file_path = "C:\\path\\to\\routing_instances.csv"  # Replace with your desired output file path
+device_list_file = "/export/home/xc04437/var.csv"  # Replace with your actual CSV file path containing devices
+output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with your desired output file path
 
 # Initialize the output CSV file
 with open(output_file_path, mode="w", newline="") as csv_file:
