@@ -37,7 +37,7 @@ failed_devices_file_path = "/export/home/xc04437/failed_devices.csv"  # File to 
 def run_command(device, command):
     try:
         # Start a session with the device
-        child = pexpect.spawn("roci {}".format(device), timeout=60, maxread=5000)  # Increase maxread if needed
+        child = pexpect.spawn("roci {}".format(device), timeout=60, maxread=5000)
 
         # Wait for the prompt
         child.expect('>')
@@ -111,7 +111,7 @@ for device in devices:
             continue
         interface_name = parts[0]
         description = ' '.join(parts[3:]).strip()
-        
+
         if current_interface is None or current_interface != interface_name:
             if current_interface is not None:
                 interface_descriptions[current_interface] = ' '.join(description_lines).strip()
@@ -119,7 +119,7 @@ for device in devices:
             description_lines = [description]
         else:
             description_lines.append(description)
-        
+    
     if current_interface is not None:
         interface_descriptions[current_interface] = ' '.join(description_lines).strip()
 
@@ -135,11 +135,11 @@ for device in devices:
             "Interface": interface,
             "Main Interface": main_interface,
             "Sub interface": sub_interface,
-            "Connection type": connection_type,
+            "Connection type": description,  # Full description now
         })
 
 # Write all data to the CSV file
-with open(output_file_path, mode="w") as csv_file:
+with open(output_file_path, mode="w", newline="") as csv_file:
     fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     writer.writeheader()
@@ -148,10 +148,11 @@ with open(output_file_path, mode="w") as csv_file:
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
 
 # Write failed devices to the CSV file
-with open(failed_devices_file_path, mode="w") as csv_file:
+with open(failed_devices_file_path, mode="w", newline="") as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(["Failed Devices"])
     for device in failed_devices:
         writer.writerow([device])
 
 print("CSV file '{}' updated with devices that failed to connect.".format(failed_devices_file_path))
+
