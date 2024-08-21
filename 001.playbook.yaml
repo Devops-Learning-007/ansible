@@ -20,33 +20,38 @@
       ansible.builtin.debug:
         msg: "Hai from task2 of play2"
 
-
+# File paths
+device_list_file = "/export/home/xc04437/var.csv"  # Replace with your actual CSV file path containing devices
+output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with your desired output file path
 
 
 import csv
 import subprocess
 import re
-import os
 
 # File paths
 device_list_file = "/export/home/xc04437/var.csv"  # Replace with your actual CSV file path containing devices
 output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with your desired output file path
 
 # Initialize the output CSV file
-with open(output_file_path, mode="w") as csv_file:
+with open(output_file_path, mode="wb") as csv_file:
     fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     writer.writeheader()
 
 # Read device list from CSV
-with open(device_list_file, mode="r") as file:
+with open(device_list_file, mode="rb") as file:
     reader = csv.reader(file)
     devices = [row[0] for row in reader]
 
 # Function to run commands on a device and capture the output
 def run_command(device, command):
-    result = subprocess.run(["roci", device, command], capture_output=True, text=True, shell=True)
-    return result.stdout
+    process = subprocess.Popen("roci {} {}".format(device, command), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        print("Error running command on device {}: {}".format(device, stderr))
+        return ""
+    return stdout
 
 # Process each device
 for device in devices:
@@ -83,7 +88,7 @@ for device in devices:
             interface_descriptions[interface_name] = description
 
     # Append the data to the output CSV file
-    with open(output_file_path, mode="a") as csv_file:
+    with open(output_file_path, mode="ab") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
         for instance_name, service_type, interface in instance_data:
