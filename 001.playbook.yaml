@@ -35,11 +35,11 @@ output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with 
 # Function to run commands on a device
 def run_command(device, command):
     try:
-        # Start a session with the device
-        child = pexpect.spawn("roci {}".format(device))
+        # Start a session with the device, with a 60-second timeout
+        child = pexpect.spawn("roci {}".format(device), timeout=60)
 
-        # Wait for the prompt
-        child.expect('>')
+        # Adjust this line if the actual prompt is different
+        child.expect('>')  
 
         # Send the command
         child.sendline(command)
@@ -55,8 +55,11 @@ def run_command(device, command):
 
         return output
 
+    except pexpect.TIMEOUT as e:
+        print("Timeout error running command on device {}: {}".format(device, e))
+        return ""
     except pexpect.ExceptionPexpect as e:
-        print("Error running command on device {}: {}".format(device, e))
+        print("pexpect error running command on device {}: {}".format(device, e))
         return ""
 
 # Read devices from the CSV file
@@ -83,6 +86,8 @@ for device in devices:
     for line in config_output.strip().splitlines():
         if line.startswith("set routing-instances"):
             parts = line.split()
+            if len(parts) < 4:
+                continue  # Skip lines that don't have enough parts
             if 'instance-type' in parts:
                 instance_name = parts[2]
                 service_type = parts[-1]
@@ -95,6 +100,8 @@ for device in devices:
         if line.startswith("Interface"):
             continue
         parts = line.split()
+        if len(parts) < 4:
+            continue  # Skip lines that don't have enough parts
         interface_name = parts[0]
         description = ' '.join(parts[3:])
         interface_descriptions[interface_name] = description
@@ -122,4 +129,3 @@ with open(output_file_path, mode="w") as csv_file:
     writer.writerows(all_instance_data)
 
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
-
