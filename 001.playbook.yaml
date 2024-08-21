@@ -31,15 +31,16 @@ import pexpect
 # File paths
 device_list_file = "/export/home/xc04437/var.csv"  # Replace with your actual CSV file path containing devices
 output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with your desired output file path
+failed_devices_file_path = "/export/home/xc04437/failed_devices.csv"  # File to log failed connections
 
 # Function to run commands on a device
 def run_command(device, command):
     try:
-        # Start a session with the device, with a 60-second timeout
-        child = pexpect.spawn("roci {}".format(device), timeout=60, maxread=2000)
+        # Start a session with the device
+        child = pexpect.spawn("roci {}".format(device), timeout=60)  # 1 minute timeout
 
-        # Adjust this line if the actual prompt is different
-        child.expect('>')  
+        # Wait for the prompt
+        child.expect('>')
 
         # Send the command
         child.sendline(command)
@@ -56,19 +57,20 @@ def run_command(device, command):
         return output
 
     except pexpect.TIMEOUT as e:
-        print("Timeout error running command on device {}: {}".format(device, e))
-        return ""
-    except pexpect.ExceptionPexpect as e:
-        print("pexpect error running command on device {}: {}".format(device, e))
-        return ""
+        print("Error running command on device {}: Timeout exceeded.".format(device))
+        return None
+    except Exception as e:
+        print("Error running command on device {}: {}".format(device, e))
+        return None
 
 # Read devices from the CSV file
 with open(device_list_file, mode="r") as csv_file:
     reader = csv.reader(csv_file)
     devices = [row[0] for row in reader]
 
-# Initialize list to store data
+# Initialize lists to store data
 all_instance_data = []
+failed_devices = []
 
 # Process each device
 for device in devices:
@@ -78,6 +80,10 @@ for device in devices:
     config_output = run_command(device, "show configuration routing-instances | display set | match \"interface|instance-type\" | no-more")
     interface_output = run_command(device, "show interfaces descriptions | no-more")
 
+    if config_output is None or interface_output is None:
+        failed_devices.append(device)
+        continue
+
     # Process the outputs
     instance_data = []
     instance_name = None
@@ -86,8 +92,6 @@ for device in devices:
     for line in config_output.strip().splitlines():
         if line.startswith("set routing-instances"):
             parts = line.split()
-            if len(parts) < 4:
-                continue  # Skip lines that don't have enough parts
             if 'instance-type' in parts:
                 instance_name = parts[2]
                 service_type = parts[-1]
@@ -95,22 +99,16 @@ for device in devices:
                 interface = parts[-1]
                 instance_data.append((instance_name, service_type, interface))
 
-    # Debugging output
-    print("Instance Data:", instance_data)
-
     interface_descriptions = {}
     for line in interface_output.strip().splitlines():
         if line.startswith("Interface"):
             continue
         parts = line.split()
         if len(parts) < 4:
-            continue  # Skip lines that don't have enough parts
+            continue
         interface_name = parts[0]
         description = ' '.join(parts[3:])
         interface_descriptions[interface_name] = description
-
-    # Debugging output
-    print("Interface Descriptions:", interface_descriptions)
 
     for instance_name, service_type, interface in instance_data:
         main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
@@ -128,10 +126,19 @@ for device in devices:
         })
 
 # Write all data to the CSV file
-with open(output_file_path, mode="w") as csv_file:
+with open(output_file_path, mode="w", newline="") as csv_file:
     fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     writer.writeheader()
     writer.writerows(all_instance_data)
 
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
+
+# Write failed devices to the CSV file
+with open(failed_devices_file_path, mode="w", newline="") as csv_file:
+    writer = csv.writer(csv_file)
+    writer.writerow(["Failed Devices"])
+    for device in failed_devices:
+        writer.writerow([device])
+
+print("CSV file '{}' updated with devices that failed to connect.".format(failed_devices_file_path))
