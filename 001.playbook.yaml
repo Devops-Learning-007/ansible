@@ -21,6 +21,8 @@
         msg: "Hai from task2 of play2"
 
 
+
+
 import csv
 import subprocess
 import re
@@ -31,7 +33,7 @@ device_list_file = "/export/home/xc04437/var.csv"  # Replace with your actual CS
 output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with your desired output file path
 
 # Initialize the output CSV file
-with open(output_file_path, mode="w", newline="") as csv_file:
+with open(output_file_path, mode="w") as csv_file:
     fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     writer.writeheader()
@@ -81,7 +83,7 @@ for device in devices:
             interface_descriptions[interface_name] = description
 
     # Append the data to the output CSV file
-    with open(output_file_path, mode="a", newline="") as csv_file:
+    with open(output_file_path, mode="a") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
         for instance_name, service_type, interface in instance_data:
@@ -100,4 +102,5 @@ for device in devices:
             })
 
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
+
 
