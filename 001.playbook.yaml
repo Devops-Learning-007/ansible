@@ -27,94 +27,98 @@ output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with 
 
 import csv
 import pexpect
-import re
 
 # File paths
 device_list_file = "/export/home/xc04437/var.csv"  # Replace with your actual CSV file path containing devices
 output_file_path = "/export/home/xc04437/routing_instances.csv"  # Replace with your desired output file path
 
-# Initialize the output CSV file
-with open(output_file_path, mode="wb") as csv_file:
-    fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
-    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-    writer.writeheader()
+# Function to run commands on a device
+def run_command(device, command):
+    try:
+        # Start a session with the device
+        child = pexpect.spawn(f"roci {device}")
 
-# Read device list from CSV
-with open(device_list_file, mode="rb") as file:
-    reader = csv.reader(file)
+        # Wait for the prompt
+        child.expect('>')
+
+        # Send the command
+        child.sendline(command)
+        child.expect('>')  # Wait for the command to complete
+
+        # Get the output
+        output = child.before.decode('utf-8')
+
+        # Send exit to properly close the session
+        child.sendline('exit')
+        child.expect(pexpect.EOF)
+        child.close()
+
+        return output
+
+    except pexpect.exceptions.ExceptionPexpect as e:
+        print(f"Error running command on device {device}: {e}")
+        return ""
+
+# Read devices from the CSV file
+with open(input_file_path, mode="r") as csv_file:
+    reader = csv.reader(csv_file)
     devices = [row[0] for row in reader]
 
-def run_command(device, command):
-    # Start an interactive session with the device using pexpect
-    child = pexpect.spawn('roci {}'.format(device))
-    child.expect('>')
-    child.sendline(command)
-    child.expect('>')
-    output = child.before
-    child.close()
-    return output
+# Initialize list to store data
+all_instance_data = []
 
 # Process each device
 for device in devices:
-    print("Processing device: {}".format(device))
+    print(f"Processing device: {device}")
     
-    # Run the required commands on the device
-    config_command = "show configuration routing-instances | display set | match 'interface|instance-type' | no-more"
-    interface_command = "show interfaces descriptions | no-more"
+    # Run commands on the device
+    config_output = run_command(device, "show configuration routing-instances | display set | match \"interface|instance-type\" | no-more")
+    interface_output = run_command(device, "show interfaces descriptions | no-more")
     
-    try:
-        config_output = run_command(device, config_command)
-        interface_output = run_command(device, interface_command)
+    # Process the outputs
+    instance_data = []
+    instance_name = None
+    service_type = None
 
-        # Initialize variables for parsing
-        instance_data = []
+    for line in config_output.strip().splitlines():
+        if line.startswith("set routing-instances"):
+            parts = line.split()
+            if 'instance-type' in parts:
+                instance_name = parts[2]
+                service_type = parts[-1]
+            elif 'interface' in parts and instance_name and service_type:
+                interface = parts[-1]
+                instance_data.append((instance_name, service_type, interface))
 
-        # Parse routing instances and interfaces
-        for line in config_output.splitlines():
-            match_instance = re.match(r"set routing-instances (\S+) instance-type (\S+)", line)
-            match_interface = re.match(r"set routing-instances (\S+) interface (\S+)", line)
+    interface_descriptions = {}
+    for line in interface_output.strip().splitlines():
+        if line.startswith("Interface"):
+            continue
+        parts = line.split()
+        interface_name = parts[0]
+        description = ' '.join(parts[3:])
+        interface_descriptions[interface_name] = description
 
-            if match_instance:
-                instance_name, service_type = match_instance.groups()
-            elif match_interface:
-                instance_name_from_interface, interface = match_interface.groups()
-                if instance_name == instance_name_from_interface:
-                    instance_data.append((instance_name, service_type, interface))
+    for instance_name, service_type, interface in instance_data:
+        main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
+        description = interface_descriptions.get(main_interface, "")
+        connection_type = description.split('|')[0] if description else ""
+        
+        all_instance_data.append({
+            "Device": device,
+            "Routing Instance": instance_name,
+            "Service type": service_type,
+            "Interface": interface,
+            "Main Interface": main_interface,
+            "Sub interface": sub_interface,
+            "Connection type": connection_type,
+        })
 
-        # Parse interface descriptions
-        interface_descriptions = {}
-        for line in interface_output.splitlines():
-            if line.startswith("Interface"):
-                continue
-            parts = line.split(None, 3)
-            if len(parts) > 3:
-                interface_name = parts[0]
-                description = parts[3]
-                interface_descriptions[interface_name] = description
+# Write all data to the CSV file
+with open(output_file_path, mode="w", newline="") as csv_file:
+    fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
+    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(all_instance_data)
 
-        # Append the data to the output CSV file
-        with open(output_file_path, mode="ab") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-            for instance_name, service_type, interface in instance_data:
-                main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
-                description = interface_descriptions.get(main_interface, "")
-                connection_type = description.split('|')[0] if description else ""
-
-                writer.writerow({
-                    "Device": device,
-                    "Routing Instance": instance_name,
-                    "Service type": service_type,
-                    "Interface": interface,
-                    "Main Interface": main_interface,
-                    "Sub interface": sub_interface,
-                    "Connection type": connection_type,
-                })
-
-        print("CSV file '{}' updated successfully with data from device '{}'.".format(output_file_path, device))
-
-    except Exception as e:
-        print("Error processing device {}: {}".format(device, str(e)))
-
-print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
-
+print(f"CSV file '{output_file_path}' updated successfully with data from all devices.")
