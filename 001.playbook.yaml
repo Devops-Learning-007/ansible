@@ -19,3 +19,84 @@
     - name: Task2 of play2
       ansible.builtin.debug:
         msg: "Hai from task2 of play2"
+
+
+import csv
+import subprocess
+import re
+import os
+
+# File paths
+device_list_file = "C:\\path\\to\\device_list.csv"  # Replace with your actual CSV file path containing devices
+output_file_path = "C:\\path\\to\\routing_instances.csv"  # Replace with your desired output file path
+
+# Initialize the output CSV file
+with open(output_file_path, mode="w", newline="") as csv_file:
+    fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
+    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    writer.writeheader()
+
+# Read device list from CSV
+with open(device_list_file, mode="r") as file:
+    reader = csv.reader(file)
+    devices = [row[0] for row in reader]
+
+# Function to run commands on a device and capture the output
+def run_command(device, command):
+    result = subprocess.run(["roci", device, command], capture_output=True, text=True, shell=True)
+    return result.stdout
+
+# Process each device
+for device in devices:
+    print(f"Processing device: {device}")
+    
+    # Run the required commands on the device
+    config_output = run_command(device, "show configuration routing-instances | display set | match 'interface|instance-type' | no-more")
+    interface_output = run_command(device, "show interfaces descriptions | no-more")
+
+    # Initialize variables for parsing
+    instance_data = []
+    
+    # Parse routing instances and interfaces
+    for line in config_output.strip().splitlines():
+        match_instance = re.match(r"set routing-instances (\S+) instance-type (\S+)", line)
+        match_interface = re.match(r"set routing-instances (\S+) interface (\S+)", line)
+        
+        if match_instance:
+            instance_name, service_type = match_instance.groups()
+        elif match_interface:
+            instance_name_from_interface, interface = match_interface.groups()
+            if instance_name == instance_name_from_interface:
+                instance_data.append((instance_name, service_type, interface))
+
+    # Parse interface descriptions
+    interface_descriptions = {}
+    for line in interface_output.strip().splitlines():
+        if line.startswith("Interface"):
+            continue
+        parts = line.split(maxsplit=3)
+        if len(parts) > 3:
+            interface_name = parts[0]
+            description = parts[3]
+            interface_descriptions[interface_name] = description
+
+    # Append the data to the output CSV file
+    with open(output_file_path, mode="a", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+        for instance_name, service_type, interface in instance_data:
+            main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
+            description = interface_descriptions.get(main_interface, "")
+            connection_type = description if description else ""
+
+            writer.writerow({
+                "Device": device,
+                "Routing Instance": instance_name,
+                "Service type": service_type,
+                "Interface": interface,
+                "Main Interface": main_interface,
+                "Sub interface": sub_interface,
+                "Connection type": connection_type,
+            })
+
+print(f"CSV file '{output_file_path}' updated successfully with data from all devices.")
