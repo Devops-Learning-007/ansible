@@ -126,7 +126,7 @@ for device in devices:
     for instance_name, service_type, interface in instance_data:
         main_interface, sub_interface = (interface.split(".", 1) + [""])[:2]
         description = interface_descriptions.get(main_interface, "")
-        connection_type = description.split('|')[0] if description else ""
+        connection_type = description if description else ""
 
         all_instance_data.append({
             "Device": device,
@@ -135,11 +135,11 @@ for device in devices:
             "Interface": interface,
             "Main Interface": main_interface,
             "Sub interface": sub_interface,
-            "Connection type": description,  # Full description now
+            "Connection type": connection_type,  # Full description now
         })
 
 # Write all data to the CSV file
-with open(output_file_path, mode="w", newline="") as csv_file:
+with open(output_file_path, mode="w") as csv_file:
     fieldnames = ["Device", "Routing Instance", "Service type", "Interface", "Main Interface", "Sub interface", "Connection type"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     writer.writeheader()
@@ -148,11 +148,10 @@ with open(output_file_path, mode="w", newline="") as csv_file:
 print("CSV file '{}' updated successfully with data from all devices.".format(output_file_path))
 
 # Write failed devices to the CSV file
-with open(failed_devices_file_path, mode="w", newline="") as csv_file:
+with open(failed_devices_file_path, mode="w") as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(["Failed Devices"])
     for device in failed_devices:
         writer.writerow([device])
 
 print("CSV file '{}' updated with devices that failed to connect.".format(failed_devices_file_path))
-
